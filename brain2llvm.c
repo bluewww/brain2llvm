@@ -95,6 +95,7 @@ bf_interpret(char *prog, bool trace)
 			prog++;
 			break;
 		case '[':
+			/* TODO: missing bracket nesting logic */
 			if (tape[head]) {
 				prog++;
 				break;
@@ -148,7 +149,11 @@ main(int argc, char **argv)
 	bf_interpret(
 	    ">++++++++[<+++++++++>-]<.>++++[<+++++++>-]<+.+++++++..+++.>>++++++[<+++++++>-]<++.------------.>++++++[<+++++++++>-]<+.<.+++.------.--------.>>>++++[<++++++++>-]<+.",
 	    false);
-
+	puts("");
+	bf_interpret(
+	    "++++++++ ++++++++ ++++++++ ++++++++ ++++++++ ++++++++ >+++++ [<+.>-]",
+	    false);
+	puts("");
 	FILE *fp = fopen("mandelbrot.bf", "r");
 	char *buffer = NULL;
 	size_t len = 0;
