@@ -59,7 +59,8 @@ bf_interpret(char *prog, bool trace)
 	while (*prog) {
 
 		if (trace)
-			printf("bf: pc=%p executing '%c'\n", prog, *prog);
+			printf("bf: pc=%p head=%d, executing '%c'\n", prog,
+			    head, *prog);
 
 		switch (*prog) {
 		case ',':
