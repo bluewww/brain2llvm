@@ -52,9 +52,9 @@ void
 bf_interpret(char *prog, bool trace)
 {
 	int tape[TAPE_SZ] = { 0 };
-	int *head;
 	char *const beg = prog;
-	head = tape;
+
+	int head = 0;
 
 	while (*prog) {
 
@@ -63,19 +63,19 @@ bf_interpret(char *prog, bool trace)
 
 		switch (*prog) {
 		case ',':
-			*head = getchar();
+			tape[head] = getchar();
 			prog++;
 			break;
 		case '.':
-			putchar(*head);
+			putchar(tape[head]);
 			prog++;
 			break;
 		case '-':
-			--*head;
+			--tape[head];
 			prog++;
 			break;
 		case '+':
-			++*head;
+			++tape[head];
 			prog++;
 			break;
 		case '<':
@@ -88,14 +88,14 @@ bf_interpret(char *prog, bool trace)
 			break;
 		case '>':
 			++head;
-			if (head >= tape + TAPE_SZ) {
+			if (head >= TAPE_SZ) {
 				fprintf(stderr, "bf: tape overflow\n");
 				abort();
 			}
 			prog++;
 			break;
 		case '[':
-			if (*head) {
+			if (tape[head]) {
 				prog++;
 				break;
 			}
@@ -110,7 +110,7 @@ bf_interpret(char *prog, bool trace)
 			prog++;
 			break;
 		case ']':
-			if (!(*head)) {
+			if (!tape[head]) {
 				prog++;
 				break;
 			}
