@@ -27,11 +27,18 @@ CPPFLAGS =
 LDFLAGS = `llvm-config --ldflags`
 LDLIBS = `llvm-config --libs core executionengine mcjit interpreter analysis native bitwriter --system-libs`
 
-all: brain2llvm
+all: brain2llvm tests
 
 # for linking we need to use the c++ linker
 brain2llvm: brain2llvm.o
 	$(CXX) $(CXXFLAGS) $(CPPFLAGS) $(LDFLAGS) $^ $(LDLIBS) -o $@
+
+tests: tests.o bf_interpreter.o
+	$(CXX) $(CXXFLAGS) $(CPPFLAGS) $(LDFLAGS) $^ $(LDLIBS) -o $@
+
+.PHONY: TAGS
+test: tests
+	./tests
 
 # Note: --kinds-c=+p generates tag entries for header file prototypes (e.g. when
 # the implementation is not available for example in compiled libraries)
@@ -41,4 +48,4 @@ TAGS:
 
 .PHONY: clean
 clean:
-	$(RM) brain2llvm brain2llvm.o
+	$(RM) brain2llvm tests brain2llvm.o tests.o bf_interpreter.o

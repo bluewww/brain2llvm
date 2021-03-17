@@ -26,161 +26,17 @@
 #include <stdio.h>
 #include <stdlib.h>
 
+#include "bf_interpreter.h"
+
 int
 sum(int x, int y)
 {
 	return x + y;
 }
 
-/*
- * The BrainF language has 8 commands:
- * Command   Equivalent C    Action
- * -------   ------------    ------
- * ,         *h=getchar();   Read a character from stdin, 255 on EOF
- * .         putchar(*h);    Write a character to stdout
- * -         --*h;           Decrement tape
- * +         ++*h;           Increment tape
- * <         --h;            Move head left
- * >         ++h;            Move head right
- * [         while(*h) {     Start loop
- * ]         }               End loop
- */
-
-#define TAPE_SZ (64 * 1024)
-
-void
-bf_interpret(char *prog, bool trace)
-{
-	int tape[TAPE_SZ] = { 0 };
-	char *const beg = prog;
-
-	int head = 0;
-
-	while (*prog) {
-
-		if (trace)
-			printf("bf: pc=%p head=%d, executing '%c'\n", prog,
-			    head, *prog);
-
-		switch (*prog) {
-		case ',':
-			tape[head] = getchar();
-			prog++;
-			break;
-		case '.':
-			putchar(tape[head]);
-			prog++;
-			break;
-		case '-':
-			--tape[head];
-			prog++;
-			break;
-		case '+':
-			++tape[head];
-			prog++;
-			break;
-		case '<':
-			if (head == 0) {
-				fprintf(stderr, "bf: tape underflow\n");
-				abort();
-			}
-			--head;
-			prog++;
-			break;
-		case '>':
-			++head;
-			if (head >= TAPE_SZ) {
-				fprintf(stderr, "bf: tape overflow\n");
-				abort();
-			}
-			prog++;
-			break;
-		case '[':
-			/* TODO: missing bracket nesting logic */
-			if (tape[head]) {
-				prog++;
-				break;
-			}
-			/* jump after ] */
-			while (*prog != ']') {
-				if (!*prog) {
-					fprintf(stderr, "bf: pc overflow\n");
-					abort();
-				}
-				prog++;
-			}
-			prog++;
-			break;
-		case ']':
-			if (!tape[head]) {
-				prog++;
-				break;
-			}
-			/* jump to [ */
-			while (*prog != '[') {
-				if (prog == beg) {
-					fprintf(stderr, "bf: pc underflow\n");
-					abort();
-				}
-				prog--;
-			}
-			break;
-		case ' ':
-		case '\n':
-		case '\t':
-			prog++;
-			break;
-		default:
-			fprintf(stderr, "bf: bad character '%c'\n", *prog);
-			abort();
-			break;
-		}
-	}
-	if (trace)
-		puts("bf: interpreter done");
-}
-
 int
 main(int argc, char **argv)
 {
-	/* trivial loop */
-	bf_interpret("[-]", true);
-
-	/* hello world */
-	bf_interpret(
-	    ">++++++++[<+++++++++>-]<.>++++[<+++++++>-]<+.+++++++..+++.>>++++++[<+++++++>-]<++.------------.>++++++[<+++++++++>-]<+.<.+++.------.--------.>>>++++[<++++++++>-]<+.",
-	    false);
-	puts("");
-	bf_interpret(
-	    "++++++++ ++++++++ ++++++++ ++++++++ ++++++++ ++++++++ >+++++ [<+.>-]",
-	    false);
-	puts("");
-	FILE *fp = fopen("mandelbrot.bf", "r");
-	char *buffer = NULL;
-	size_t len = 0;
-
-	if (fp == NULL) {
-		fprintf(stderr, "mandelbrot.bf does not exist, skipping\n");
-	} else {
-		/* read into buffer */
-		fseek(fp, 0, SEEK_END);
-		len = ftell(fp);
-		fseek(fp, 0, SEEK_SET);
-		buffer = malloc(len + 1);
-		if (!buffer) {
-			perror("malloc");
-			abort();
-		}
-
-		fread(buffer, 1, len, fp);
-
-		buffer[len] = '\0';
-
-		fclose(fp);
-		/* run */
-		bf_interpret(buffer, false);
-	}
-
 	if (argc < 3) {
 		fprintf(stderr, "usage: %s x y\n", argv[0]);
 		exit(EXIT_FAILURE);
