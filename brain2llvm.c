@@ -77,7 +77,7 @@ main(int argc, char **argv)
 	    builder, LLVMGetParam(sum, 0), LLVMGetParam(sum, 1), "tmp");
 	LLVMBuildRet(builder, tmp);
 
-	if (LLVMWriteBitcodeToFile(mod, "brain2llvm.bc") != 0) {
+	if (LLVMWriteBitcodeToFile(mod, "brain2llvm.bc")) {
 		fprintf(stderr, "error writing bitcode to file\n");
 		abort();
 	}
