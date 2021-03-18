@@ -65,7 +65,7 @@ print_bb(LLVMValueRef fun)
 }
 
 /* lower brainfuck to llvm */
-void
+LLVMValueRef
 lower(char *prog, LLVMModuleRef mod, LLVMContextRef ctx, bool trace)
 {
 
@@ -323,6 +323,8 @@ lower(char *prog, LLVMModuleRef mod, LLVMContextRef ctx, bool trace)
 
 	if (trace)
 		print_bb(jitted_fun);
+
+	return jitted_fun;
 }
 
 void
@@ -385,7 +387,7 @@ main(int argc, char **argv)
 	LLVMModuleRef mod = LLVMModuleCreateWithNameInContext("brain", ctx);
 
 	/* lower to llvm ir */
-	lower(buffer, mod, ctx, verbose);
+	LLVMValueRef jitted_fun = lower(buffer, mod, ctx, verbose);
 
 	/* dump unoptimized ir if we want */
 	if (verbose && LLVMWriteBitcodeToFile(mod, "brain2llvm-pre-opt.bc")) {
@@ -398,19 +400,30 @@ main(int argc, char **argv)
 	LLVMVerifyModule(mod, LLVMAbortProcessAction, &error);
 	LLVMDisposeMessage(error);
 
+
 	/* apply optimization passes to ir */
 	LLVMPassManagerBuilderRef pass_builder = LLVMPassManagerBuilderCreate();
 	LLVMPassManagerBuilderSetOptLevel(pass_builder, 2);
 
-	LLVMPassManagerRef passes = LLVMCreatePassManager();
+	LLVMPassManagerRef pm = LLVMCreatePassManager();
+	LLVMPassManagerRef fun_pm = LLVMCreateFunctionPassManagerForModule(mod);
 
-	LLVMPassManagerBuilderPopulateFunctionPassManager(pass_builder, passes);
+	LLVMPassManagerBuilderPopulateModulePassManager(pass_builder, pm);
+	LLVMPassManagerBuilderPopulateFunctionPassManager(pass_builder, fun_pm);
 
-	if (!LLVMRunPassManager(passes, mod)) {
-		fprintf(stderr, "optimization passes failed to apply\n");
+	LLVMInitializeFunctionPassManager(fun_pm);
+
+	if (!LLVMRunFunctionPassManager(fun_pm, jitted_fun)) {
+		fprintf(stderr, "fun opt passes failed to apply\n");
 		exit(EXIT_FAILURE);
 	}
 
+	if (!LLVMRunPassManager(pm, mod)) {
+		fprintf(stderr, "opt passes failed to apply\n");
+		exit(EXIT_FAILURE);
+	}
+
+	/* dump optimized ir if we want */
 	if (verbose && LLVMWriteBitcodeToFile(mod, "brain2llvm-opt.bc")) {
 		fprintf(stderr, "error writing bitcode to file\n");
 		exit(EXIT_FAILURE);
