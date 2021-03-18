@@ -126,7 +126,8 @@ lower(char *prog, LLVMModuleRef mod, LLVMContextRef ctx, bool trace)
 		LLVMValueRef user;
 		LLVMValueRef cmp;
 
-		LLVMBasicBlockRef loop_bb, exit_bb;
+		LLVMBasicBlockRef loop_bb = NULL;
+		LLVMBasicBlockRef exit_bb = NULL;
 
 		if (trace)
 			printf("lower: lowering '%c'\n", *prog);
@@ -272,8 +273,8 @@ lower(char *prog, LLVMModuleRef mod, LLVMContextRef ctx, bool trace)
 			}
 
 			/* pop from stack */
-			loop_bb = bb_stack[--bb_index];
 			exit_bb = bb_stack[--bb_index];
+			loop_bb = bb_stack[--bb_index];
 
 			offset = LLVMBuildLoad2(builder,
 			    LLVMInt32TypeInContext(ctx), tape_ptr, "offset");
@@ -290,7 +291,7 @@ lower(char *prog, LLVMModuleRef mod, LLVMContextRef ctx, bool trace)
 			    "cmp_not_zero");
 
 			/* if cmp is zero, then exit loop, else loop */
-			LLVMBuildCondBr(builder, cmp, exit_bb, loop_bb);
+			LLVMBuildCondBr(builder, cmp, loop_bb, exit_bb);
 
 			/* continue inserting bb's *after* loop body*/
 			LLVMPositionBuilderAtEnd(builder, exit_bb);
