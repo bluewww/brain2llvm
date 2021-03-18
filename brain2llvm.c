@@ -29,8 +29,6 @@
 #include <stdlib.h>
 #include <unistd.h>
 
-#include "bf_interpreter.h"
-
 #define BF_MEM_SZ (64 * 1024)
 #define BB_STACK_SZ (64 * 1024)
 

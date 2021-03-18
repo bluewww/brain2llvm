@@ -21,23 +21,27 @@
 #include <stdbool.h>
 #include <stdlib.h>
 
-#include "bf_interpreter.h"
+#include "interpreter.h"
 
 int
 main(void)
 {
 	/* trivial loop */
-	bf_interpret("[-]", true);
+	interpret("[-]", true);
 
 	/* hello world */
-	bf_interpret(
+	interpret(
 	    ">++++++++[<+++++++++>-]<.>++++[<+++++++>-]<+.+++++++..+++.>>++++++[<+++++++>-]<++.------------.>++++++[<+++++++++>-]<+.<.+++.------.--------.>>>++++[<++++++++>-]<+.",
 	    false);
 	puts("");
-	bf_interpret(
+
+	/* count to five */
+	interpret(
 	    "++++++++ ++++++++ ++++++++ ++++++++ ++++++++ ++++++++ >+++++ [<+.>-]",
 	    false);
 	puts("");
+
+	/* mandelbrot */
 	FILE *fp = fopen("mandelbrot.bf", "r");
 	char *buffer = NULL;
 	size_t len = 0;
@@ -61,7 +65,7 @@ main(void)
 
 		fclose(fp);
 		/* run */
-		bf_interpret(buffer, false);
+		interpret(buffer, false);
 	}
 	return EXIT_SUCCESS;
 }

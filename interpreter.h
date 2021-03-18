@@ -17,4 +17,4 @@
  * Author: Robert Balas (balasr@iis.ee.ethz.ch)
  */
 
-void bf_interpret(char *prog, bool trace);
+void interpret(char *prog, bool trace);

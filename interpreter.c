@@ -21,7 +21,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 
-#include "bf_interpreter.h"
+#include "interpreter.h"
 /*
  * The BrainF language has 8 commands:
  * Command   Equivalent C    Action
@@ -39,7 +39,7 @@
 #define TAPE_SZ (64 * 1024)
 
 void
-bf_interpret(char *prog, bool trace)
+interpret(char *prog, bool trace)
 {
 	int tape[TAPE_SZ] = { 0 };
 	int nesting = 0; /* nesting counter */

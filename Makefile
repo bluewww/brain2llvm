@@ -34,7 +34,7 @@ all: brain2llvm tests
 brain2llvm: brain2llvm.o
 	$(CXX) $(CXXFLAGS) $(CPPFLAGS) $(LDFLAGS) $^ $(LDLIBS) -o $@
 
-tests: tests.o bf_interpreter.o
+tests: tests.o interpreter.o
 	$(CXX) $(CXXFLAGS) $(CPPFLAGS) $(LDFLAGS) $^ $(LDLIBS) -o $@
 
 .PHONY: TAGS
