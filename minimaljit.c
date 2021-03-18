@@ -17,8 +17,8 @@
  * Author: Robert Balas (balasr@iis.ee.ethz.ch)
  */
 
-#include <llvm-c/BitWriter.h>
 #include <llvm-c/Analysis.h>
+#include <llvm-c/BitWriter.h>
 #include <llvm-c/Core.h>
 #include <llvm-c/ExecutionEngine.h>
 #include <stdbool.h>
@@ -91,7 +91,6 @@ main(int argc, char **argv)
 		abort();
 	}
 
-	
 	LLVMDisposeModule(mod);
 	return 0;
 }

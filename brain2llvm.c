@@ -116,7 +116,6 @@ lower(char *prog, LLVMModuleRef mod, LLVMContextRef ctx, bool trace)
 	int bb_index = 0;
 
 	while (*prog) {
-
 		LLVMValueRef gep_args[1] = { 0 };
 		LLVMValueRef call_args[1] = { 0 };
 		LLVMValueRef load, decr, incr;
@@ -149,6 +148,7 @@ lower(char *prog, LLVMModuleRef mod, LLVMContextRef ctx, bool trace)
 
 			prog++;
 			break;
+
 		case '.':
 			/* putchar. Note we need to cast char to int */
 			offset = LLVMBuildLoad2(builder,
@@ -168,6 +168,7 @@ lower(char *prog, LLVMModuleRef mod, LLVMContextRef ctx, bool trace)
 
 			prog++;
 			break;
+
 		case '-':
 			offset = LLVMBuildLoad2(builder,
 			    LLVMInt32TypeInContext(ctx), tape_ptr, "offset");
@@ -184,6 +185,7 @@ lower(char *prog, LLVMModuleRef mod, LLVMContextRef ctx, bool trace)
 
 			prog++;
 			break;
+
 		case '+':
 			offset = LLVMBuildLoad2(builder,
 			    LLVMInt32TypeInContext(ctx), tape_ptr, "offset");
@@ -200,6 +202,7 @@ lower(char *prog, LLVMModuleRef mod, LLVMContextRef ctx, bool trace)
 
 			prog++;
 			break;
+
 		case '<':
 			/* decrement pointed value */
 			load = LLVMBuildLoad2(builder,
@@ -211,6 +214,7 @@ lower(char *prog, LLVMModuleRef mod, LLVMContextRef ctx, bool trace)
 
 			prog++;
 			break;
+
 		case '>':
 			/* increment pointed value */
 			load = LLVMBuildLoad2(builder,
@@ -222,6 +226,7 @@ lower(char *prog, LLVMModuleRef mod, LLVMContextRef ctx, bool trace)
 
 			prog++;
 			break;
+
 		case '[':
 			/* load value under tape_ptr */
 			offset = LLVMBuildLoad2(builder,
@@ -261,6 +266,7 @@ lower(char *prog, LLVMModuleRef mod, LLVMContextRef ctx, bool trace)
 
 			prog++;
 			break;
+
 		case ']':
 			if (bb_index == 0) {
 				fprintf(stderr, "bf: unmatched closing ']'\n");
@@ -297,11 +303,13 @@ lower(char *prog, LLVMModuleRef mod, LLVMContextRef ctx, bool trace)
 
 			prog++;
 			break;
+
 		case ' ':
 		case '\n':
 		case '\t':
 			prog++;
 			break;
+
 		default:
 			fprintf(stderr, "bf: bad character '%c'\n", *prog);
 			abort();
@@ -354,7 +362,8 @@ main(int argc, char **argv)
 		fprintf(stderr, "%s does not exist\n", argv[optind]);
 		exit(EXIT_FAILURE);
 	}
-	/* read into buffer */
+
+	/* read into buffer and null terminate */
 	fseek(fp, 0, SEEK_END);
 	len = ftell(fp);
 	fseek(fp, 0, SEEK_SET);
@@ -410,7 +419,7 @@ main(int argc, char **argv)
 		 &sym_generator, LLVMOrcLLJITGetGlobalPrefix(lljit), NULL,
 		 NULL))) {
 		status = handle_error(err);
-		goto jit_cleanup;
+		goto jit_fail;
 	}
 
 	LLVMOrcJITDylibAddGenerator(
@@ -421,23 +430,22 @@ main(int argc, char **argv)
 	if ((err = LLVMOrcLLJITAddLLVMIRModule(lljit, mainjd, tsm))) {
 		LLVMOrcDisposeThreadSafeModule(tsm);
 		status = handle_error(err);
-		goto module_add_fail;
+		goto jit_fail;
 	}
 
 	/* look up address of jitted function */
 	LLVMOrcJITTargetAddress jitted_addr;
 	if ((err = LLVMOrcLLJITLookup(lljit, &jitted_addr, "jitted"))) {
 		status = handle_error(err);
-		goto jitted_addr_fail;
+		goto jit_fail;
 	}
 
 	void (*jitted_ptr)(void) = (void (*)(void))jitted_addr;
 
+	/* enter jitted code */
 	jitted_ptr();
 
-module_add_fail:
-jitted_addr_fail:
-jit_cleanup:
+jit_fail:
 	/* destroy jit instance. This may fail! */
 	if ((err = LLVMOrcDisposeLLJIT(lljit))) {
 		int new_err = handle_error(err);
