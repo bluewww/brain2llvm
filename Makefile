@@ -25,7 +25,8 @@ CXXFLAGS = -O2 -g3 `llvm-config --cxxflags` -Wall -Wextra
 CPPFLAGS =
 
 LDFLAGS = `llvm-config --ldflags`
-LDLIBS = `llvm-config --libs core executionengine mcjit orcjit interpreter analysis native bitwriter --system-libs`
+LDLIBS = `llvm-config --libs core executionengine mcjit orcjit interpreter \
+	analysis native bitwriter --system-libs`
 
 all: brain2llvm tests
 
