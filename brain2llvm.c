@@ -291,11 +291,6 @@ lower(char *prog, LLVMModuleRef mod, LLVMContextRef ctx, bool trace)
 
 	/* no return value */
 	LLVMBuildRetVoid(builder);
-
-	/* verify what we are doing */
-	char *error = NULL;
-	LLVMVerifyModule(mod, LLVMAbortProcessAction, &error);
-	LLVMDisposeMessage(error);
 }
 
 int
@@ -318,59 +313,71 @@ main(void)
 		abort();
 	}
 
-	return status;
+	/* verify what we compiled */
+	char *error = NULL;
+	LLVMVerifyModule(mod, LLVMAbortProcessAction, &error);
+	LLVMDisposeMessage(error);
 
 	LLVMOrcThreadSafeModuleRef tsm = LLVMOrcCreateNewThreadSafeModule(
 	    mod, tsctx);
 
-	/* char *error = NULL; */
-	/* LLVMVerifyModule(mod, LLVMAbortProcessAction, &error); */
-	/* LLVMDisposeMessage(error); */
-
 	LLVMInitializeCore(LLVMGetGlobalPassRegistry());
 
 	LLVMInitializeNativeTarget();
-	LLVMInitializeNativeAsmParser();
 	LLVMInitializeNativeAsmPrinter();
 
-/* 	/\* create jit instance *\/ */
-/* 	LLVMOrcLLJITRef lljit; */
-/* 	LLVMErrorRef err; */
-/* 	if ((err = LLVMOrcCreateLLJIT(&lljit, 0))) { */
-/* 		status = handle_error(err); */
-/* 		goto orc_llvm_fail; */
-/* 	} */
+	/* create jit instance */
+	LLVMOrcLLJITRef lljit;
+	LLVMErrorRef err;
 
-/* 	/\* add module to jit instance *\/ */
-/* 	LLVMOrcJITDylibRef mainjd = LLVMOrcLLJITGetMainJITDylib(lljit); */
-/* 	if ((err = LLVMOrcLLJITAddLLVMIRModule(lljit, mainjd, tsm))) { */
-/* 		LLVMOrcDisposeThreadSafeModule(tsm); */
-/* 		status = handle_error(err); */
-/* 		goto module_add_fail; */
-/* 	} */
+	if ((err = LLVMOrcCreateLLJIT(&lljit, 0))) {
+		status = handle_error(err);
+		goto orc_llvm_fail;
+	}
 
-/* 	/\* look up address of sum function *\/ */
-/* 	LLVMOrcJITTargetAddress sum_addr; */
-/* 	if ((err = LLVMOrcLLJITLookup(lljit, &sum_addr, "sum"))) { */
-/* 		status = handle_error(err); */
-/* 		goto sum_addr_fail; */
-/* 	} */
+	/* Configure host symbol lookup. We don't filter any symbols. */
+	LLVMOrcJITDylibDefinitionGeneratorRef sym_generator = 0;
+	if ((err = LLVMOrcCreateDynamicLibrarySearchGeneratorForProcess(
+		 &sym_generator, LLVMOrcLLJITGetGlobalPrefix(lljit), NULL,
+		 NULL))) {
+		status = handle_error(err);
+		goto jit_cleanup;
+	}
 
-/* 	int (*sum_ptr)(int, int) = (int (*)(int, int))sum_addr; */
+	LLVMOrcJITDylibAddGenerator(
+	    LLVMOrcLLJITGetMainJITDylib(lljit), sym_generator);
 
-/* 	printf("%d\n", sum_ptr(x, y)); */
+	/* add module to jit instance */
+	LLVMOrcJITDylibRef mainjd = LLVMOrcLLJITGetMainJITDylib(lljit);
+	if ((err = LLVMOrcLLJITAddLLVMIRModule(lljit, mainjd, tsm))) {
+		LLVMOrcDisposeThreadSafeModule(tsm);
+		status = handle_error(err);
+		goto module_add_fail;
+	}
 
-/* module_add_fail: */
-/* sum_addr_fail: */
-/* 	/\* destroy jit instance. This may fail! *\/ */
-/* 	if ((err = LLVMOrcDisposeLLJIT(lljit))) { */
-/* 		int new_err = handle_error(err); */
-/* 		if (status == 0) */
-/* 			status = new_err; */
-/* 	} */
+	/* look up address of jitted function */
+	LLVMOrcJITTargetAddress jitted_addr;
+	if ((err = LLVMOrcLLJITLookup(lljit, &jitted_addr, "jitted"))) {
+		status = handle_error(err);
+		goto jitted_addr_fail;
+	}
 
-/* orc_llvm_fail: */
-/* 	LLVMShutdown(); */
+	void (*jitted_ptr)(void) = (void (*)(void))jitted_addr;
+
+	jitted_ptr();
+
+module_add_fail:
+jitted_addr_fail:
+jit_cleanup:
+	/* destroy jit instance. This may fail! */
+	if ((err = LLVMOrcDisposeLLJIT(lljit))) {
+		int new_err = handle_error(err);
+		if (status == 0)
+			status = new_err;
+	}
+
+orc_llvm_fail:
+	LLVMShutdown();
 
 	return status;
 }
