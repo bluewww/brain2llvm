@@ -44,6 +44,26 @@ handle_error(LLVMErrorRef err)
 	return 1;
 }
 
+void
+print_bb(LLVMValueRef fun)
+{
+	LLVMBasicBlockRef bb = NULL;
+	for (bb = LLVMGetFirstBasicBlock(fun); bb;
+	     bb = LLVMGetNextBasicBlock(bb)) {
+		printf("bb: %s\n", LLVMGetBasicBlockName(bb));
+		if (LLVMGetBasicBlockTerminator(bb))
+			puts("ok ");
+		else
+			puts("NO TERMINATOR");
+
+		LLVMValueRef insn = NULL;
+		for (insn = LLVMGetFirstInstruction(bb); insn;
+		     insn = LLVMGetNextInstruction(insn)) {
+			printf("insn: %d\n", LLVMGetInstructionOpcode(insn));
+		}
+	}
+}
+
 /* lower brainfuck to llvm */
 void
 lower(char *prog, LLVMModuleRef mod, LLVMContextRef ctx, bool trace)
