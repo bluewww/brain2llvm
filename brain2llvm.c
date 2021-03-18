@@ -23,6 +23,7 @@
 #include <llvm-c/Core.h>
 #include <llvm-c/Error.h>
 #include <llvm-c/Orc.h>
+#include <llvm-c/Transforms/PassManagerBuilder.h>
 #include <llvm-c/Types.h>
 #include <stdbool.h>
 #include <stdio.h>
@@ -386,7 +387,8 @@ main(int argc, char **argv)
 	/* lower to llvm ir */
 	lower(buffer, mod, ctx, verbose);
 
-	if (LLVMWriteBitcodeToFile(mod, "brain2llvm.bc")) {
+	/* dump unoptimized ir if we want */
+	if (verbose && LLVMWriteBitcodeToFile(mod, "brain2llvm-pre-opt.bc")) {
 		fprintf(stderr, "error writing bitcode to file\n");
 		exit(EXIT_FAILURE);
 	}
@@ -395,6 +397,24 @@ main(int argc, char **argv)
 	char *error = NULL;
 	LLVMVerifyModule(mod, LLVMAbortProcessAction, &error);
 	LLVMDisposeMessage(error);
+
+	/* apply optimization passes to ir */
+	LLVMPassManagerBuilderRef pass_builder = LLVMPassManagerBuilderCreate();
+	LLVMPassManagerBuilderSetOptLevel(pass_builder, 2);
+
+	LLVMPassManagerRef passes = LLVMCreatePassManager();
+
+	LLVMPassManagerBuilderPopulateFunctionPassManager(pass_builder, passes);
+
+	if (!LLVMRunPassManager(passes, mod)) {
+		fprintf(stderr, "optimization passes failed to apply\n");
+		exit(EXIT_FAILURE);
+	}
+
+	if (verbose && LLVMWriteBitcodeToFile(mod, "brain2llvm-opt.bc")) {
+		fprintf(stderr, "error writing bitcode to file\n");
+		exit(EXIT_FAILURE);
+	}
 
 	LLVMOrcThreadSafeModuleRef tsm = LLVMOrcCreateNewThreadSafeModule(
 	    mod, tsctx);
