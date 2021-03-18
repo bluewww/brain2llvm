@@ -27,6 +27,7 @@
 #include <stdbool.h>
 #include <stdio.h>
 #include <stdlib.h>
+#include <unistd.h>
 
 #include "bf_interpreter.h"
 
@@ -312,22 +313,71 @@ lower(char *prog, LLVMModuleRef mod, LLVMContextRef ctx, bool trace)
 
 	/* no return value */
 	LLVMBuildRetVoid(builder);
+
+	if (trace)
+		print_bb(jitted_fun);
+}
+
+void
+usage(char **argv)
+{
+	fprintf(stderr, "usage:  %s [-v] program.bf\n", argv[0]);
+	exit(EXIT_FAILURE);
 }
 
 int
-main(void)
+main(int argc, char **argv)
 {
 	int status = EXIT_SUCCESS;
 
+	int opt = 0;
+	bool verbose = false;
+
+	while ((opt = getopt(argc, argv, "v")) != -1) {
+		switch (opt) {
+		case 'v':
+			verbose = true;
+			break;
+		default:
+			usage(argv);
+		}
+	}
+
+	/* missing mandatory file arg */
+	if (optind >= argc)
+		usage(argv);
+
+	/* parse input */
+	char *buffer = NULL;
+	size_t len = 0;
+	FILE *fp = fopen(argv[optind], "r");
+
+	if (!fp) {
+		fprintf(stderr, "%s does not exist\n", argv[optind]);
+		exit(EXIT_FAILURE);
+	}
+	/* read into buffer */
+	fseek(fp, 0, SEEK_END);
+	len = ftell(fp);
+	fseek(fp, 0, SEEK_SET);
+	buffer = malloc(len + 1);
+	if (!buffer) {
+		perror("malloc");
+		abort();
+	}
+	fread(buffer, 1, len, fp);
+	buffer[len] = '\0';
+	fclose(fp);
+
+	/* llvm  jit thread context (we don't really make use of this feature
+	 * though) */
 	LLVMOrcThreadSafeContextRef tsctx = LLVMOrcCreateNewThreadSafeContext();
 	LLVMContextRef ctx = LLVMOrcThreadSafeContextGetContext(tsctx);
 
 	LLVMModuleRef mod = LLVMModuleCreateWithNameInContext("brain", ctx);
 
-	/* lower program to llvm ir */
-	lower(
-	    "++++++++ ++++++++ ++++++++ ++++++++ ++++++++ ++++++++ >+++++ [<+.>-]",
-	    mod, ctx, true);
+	/* lower to llvm ir */
+	lower(buffer, mod, ctx, verbose);
 
 	if (LLVMWriteBitcodeToFile(mod, "brain2llvm.bc")) {
 		fprintf(stderr, "error writing bitcode to file\n");
