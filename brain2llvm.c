@@ -31,6 +31,9 @@
 #include "bf_interpreter.h"
 
 #define BF_MEM_SZ (64 * 1024)
+#define BB_STACK_SZ (64 * 1024)
+
+LLVMBasicBlockRef bb_stack[BB_STACK_SZ] = { 0 };
 
 int
 handle_error(LLVMErrorRef err)
@@ -91,6 +94,8 @@ lower(char *prog, LLVMModuleRef mod, LLVMContextRef ctx, bool trace)
 	LLVMBuildStore(builder,
 	    LLVMConstInt(LLVMInt32TypeInContext(ctx), 0, false), tape_ptr);
 
+	int bb_index = 0;
+
 	while (*prog) {
 
 		LLVMValueRef gep_args[1] = { 0 };
@@ -99,6 +104,9 @@ lower(char *prog, LLVMModuleRef mod, LLVMContextRef ctx, bool trace)
 		LLVMValueRef ele_ptr, load_ele, incr_ele, decr_ele;
 		LLVMValueRef cast, offset;
 		LLVMValueRef user;
+		LLVMValueRef cmp;
+
+		LLVMBasicBlockRef loop_bb, exit_bb;
 
 		if (trace)
 			printf("lower: lowering '%c'\n", *prog);
@@ -195,9 +203,79 @@ lower(char *prog, LLVMModuleRef mod, LLVMContextRef ctx, bool trace)
 			prog++;
 			break;
 		case '[':
+			/* load value under tape_ptr */
+			offset = LLVMBuildLoad2(builder,
+			    LLVMInt32TypeInContext(ctx), tape_ptr, "offset");
+			gep_args[0] = offset;
+			ele_ptr = LLVMBuildInBoundsGEP2(builder,
+			    LLVMInt8TypeInContext(ctx), mem, gep_args, 1,
+			    "ele_ptr");
+			load_ele = LLVMBuildLoad2(builder,
+			    LLVMInt8TypeInContext(ctx), ele_ptr, "load_ele");
+
+			/* branch depending whether it's zero or not */
+			cmp = LLVMBuildICmp(builder, LLVMIntEQ, load_ele,
+			    LLVMConstInt(LLVMInt8TypeInContext(ctx), 0, false),
+			    "cmp_zero");
+
+			/* creat loop body block and skip block */
+			loop_bb = LLVMAppendBasicBlockInContext(
+			    ctx, jitted_fun, "loop_body");
+			exit_bb = LLVMAppendBasicBlockInContext(
+			    ctx, jitted_fun, "loop_exit");
+
+			/* if cmp is zero, then exit loop, else loop */
+			LLVMBuildCondBr(builder, cmp, exit_bb, loop_bb);
+
+			/* push loop and exit to stack for nesting  of [ */
+			if (bb_index >= BB_STACK_SZ - 2) {
+				fprintf(
+				    stderr, "bf: basic block stack overflow\n");
+				abort();
+			}
+			bb_stack[bb_index++] = loop_bb;
+			bb_stack[bb_index++] = exit_bb;
+
+			/* continue inserting bb's to loop body */
+			LLVMPositionBuilderAtEnd(builder, loop_bb);
+
 			prog++;
 			break;
 		case ']':
+			if (bb_index == 0) {
+				fprintf(stderr, "bf: unmatched closing ']'\n");
+				abort();
+			} else if (bb_index < 2) {
+				fprintf(stderr,
+				    "bf: basic block stack underflow\n");
+				abort();
+			}
+
+			/* pop from stack */
+			loop_bb = bb_stack[--bb_index];
+			exit_bb = bb_stack[--bb_index];
+
+			offset = LLVMBuildLoad2(builder,
+			    LLVMInt32TypeInContext(ctx), tape_ptr, "offset");
+			gep_args[0] = offset;
+			ele_ptr = LLVMBuildInBoundsGEP2(builder,
+			    LLVMInt8TypeInContext(ctx), mem, gep_args, 1,
+			    "ele_ptr");
+			load_ele = LLVMBuildLoad2(builder,
+			    LLVMInt8TypeInContext(ctx), ele_ptr, "load_ele");
+
+			/* branch depending whether it's zero or not */
+			cmp = LLVMBuildICmp(builder, LLVMIntNE, load_ele,
+			    LLVMConstInt(LLVMInt8TypeInContext(ctx), 0, false),
+			    "cmp_not_zero");
+
+			/* if cmp is zero, then exit loop, else loop */
+			LLVMBuildCondBr(builder, cmp, exit_bb, loop_bb);
+
+			/* continue inserting bb's *after* loop body*/
+			LLVMPositionBuilderAtEnd(builder, exit_bb);
+
+			prog++;
 			break;
 		case ' ':
 		case '\n':
