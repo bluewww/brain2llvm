@@ -370,7 +370,7 @@ main(int argc, char **argv)
 	buffer = malloc(len + 1);
 	if (!buffer) {
 		perror("malloc");
-		abort();
+		exit(EXIT_FAILURE);
 	}
 	fread(buffer, 1, len, fp);
 	buffer[len] = '\0';
@@ -388,7 +388,7 @@ main(int argc, char **argv)
 
 	if (LLVMWriteBitcodeToFile(mod, "brain2llvm.bc")) {
 		fprintf(stderr, "error writing bitcode to file\n");
-		abort();
+		exit(EXIT_FAILURE);
 	}
 
 	/* verify what we compiled */
