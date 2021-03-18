@@ -287,8 +287,6 @@ lower(char *prog, LLVMModuleRef mod, LLVMContextRef ctx, bool trace)
 			abort();
 			break;
 		}
-
-		prog++;
 	}
 
 	/* no return value */
